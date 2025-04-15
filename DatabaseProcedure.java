@@ -1,162 +1,271 @@
 import java.sql.*;
 import java.util.ArrayList;
-
 public class DatabaseProcedure {
+    private Connection con;
+    private String url;
+    private String usrnm;
+    private String pswd;
 
-   private Connection con;
+    // Parameterized Constructor to initilize URL, USER NAME & PASSWORD.
 
-   /* 
-      Parameterized constructore to initilize 'Connection object'
-   */
+    public DatabaseProcedure(String url, String usrnm, String pswd) {
+        this.url = url;
+        this.usrnm = usrnm;
+        this.pswd = pswd;
+    }
 
-   public DatabaseProcedure(String url, String usr, String pswd) {
-      try
-      {
-         con = DriverManager.getConnection(url,usr,pswd);
-      }
-      catch(SQLException e) {
-         System.out.println(e);
-      }
-   }
+    // Private Method to get CONNECTION to DB SERVER. Call every time with CRUD OPERATION.
 
+    private void establishConnection() throws SQLException {
+        this.con = DriverManager.getConnection(url,usrnm,pswd);
+    }
 
-   /*
+    // Private Method to close the CONNECTION to DBMS SERVER. Call every time with CRUD OPERATION.
 
-   Method 'insertRecords' to insert records into database. Take ArrayList of type Employee as an arguments & returns Integer value that how many records inserted.
-
-   */
-
-   public int insertRecords(ArrayList<Employee> list) {
-      
-      int rowCount = 0;  // To count how many records are inserted.
-      if(list.size() > 0) {
-
-         String insertQuery = "INSERT INTO employee (Id_Code, First_Name, Last_Name, Mob_no, Dob, Address, Gender, Email) VALUES (?,?,?,?,?,?,?,?)";
-   
-         try
-         {
-            PreparedStatement prstmt = con.prepareStatement(insertQuery); 
-
-            for(int index = 0; index < list.size(); index++) // To set insert Query...
+    private void closeConnection() {
+        if(this.con != null) {
+            try
             {
-               Employee emp = list.get(index);
-               prstmt.setInt(1,emp.getIdCode());
-               prstmt.setString(2,emp.getFirstName());
-               prstmt.setString(3,emp.getLastName());
-               prstmt.setString(4,emp.getMobileNo());
-               prstmt.setDate(5,emp.getDob());
-               prstmt.setString(6,emp.getAddress());
-               prstmt.setString(7,emp.getGender());
-               prstmt.setString(8,emp.getEmail());
-               rowCount = prstmt.executeUpdate();
+                con.close();
             }
-         
-         }
-         catch(SQLException e) {
-            System.out.println(e);
-         }
+            catch(SQLException sqlEx) {
+                System.out.println(sqlEx.getMessage());
+            }
+        }
+    }
 
-      } // End of if.
+    // Method to INSERT RECORD into Employee TABLE.
 
-      return rowCount;  
+    public int insertRecord(Employee emp) {
+        int effectedRow = 0;
+        try
+        {
+            this.establishConnection(); // throws SQL Exception if url null or DB error.
+            String insertQuery = "INSERT INTO employee VALUES (?,?,?,?,?,?,?)";
+            PreparedStatement prstmt = con.prepareStatement(insertQuery);  // throws DB error only.
+            // Here we can use HashMap instead of Employee Object.
+            prstmt.setInt(1,emp.getIdCode());
+            prstmt.setString(2,emp.getFirstName());
+            prstmt.setString(3,emp.getLastName());
+            prstmt.setString(4,emp.getMobileNo());
+            prstmt.setString(5,emp.getAddress());
+            prstmt.setString(6,emp.getGender());
+            prstmt.setString(7,emp.getEmail());
 
-   } // End of method boyd. 
-
-
-   // Method 'displayRecords' to retrive and display records from database.
-
-   public void displayRecords() {
-
-      String selectQuery = "SELECT * FROM employee";
-      try
-      {
-         PreparedStatement prstmt = con.prepareStatement(selectQuery); 
-         ResultSet rst = prstmt.executeQuery();
-
-         if(rst.next()) {
-            do {
-               System.out.println();
-               System.out.println("Id Code........... : "+rst.getInt(1));
-               System.out.println("First Name........ : "+rst.getString(2));
-               System.out.println("Last Name......... : "+rst.getString(3));
-               System.out.println("Mobile No......... : "+rst.getString(4));
-               System.out.println("Date of Birth..... : "+rst.getDate(5).toString());
-               System.out.println("Address........... : "+rst.getString(6));
-               System.out.println("Genger............ : "+rst.getString(7));
-               System.out.println("Email-Id.......... : "+rst.getString(8));
-            } while(rst.next());
-         }
-         else
-            System.out.println("NO RECORD FOUND...\n");
-      }
-      catch(SQLException e) {
-         System.out.println(e);
-      }
-   }
+            // effectedRow = prstmt.executeUpdate();
+        }
+        catch(SQLException sqlEx) {
+            System.out.println(sqlEx.getMessage());
+        }
+        finally {
+            this.closeConnection();
+        }
+        return effectedRow;
+    }
 
 
-   /*
+    // Private Method to RETRIEVE RECORDS as a ArrayList FROM TABLE.
 
-   Method 'deleteRecords' to delete records from database. Take idCode as an arguments & returns integer value that how many records deleted.
+    public ArrayList<String> retrieveRecord() {
+        String query = "SELECT * FROM employee";
+        return retrieve(query);
+    }
 
-   */
+    // Private Method to RETRIEVE SPECIFIED RECORD as a ArrayList FROM TABLE.
 
-   public int deleteRecords(int idCode) {
+    public ArrayList<String> retrieveRecord(int empIdCode) {
+        String query = "SELECT * FROM employee WHERE Id_Code="+empIdCode;
+        return retrieve(query);
+    }
 
-      int rowCount  = 0;
-      String deleteQuery = "DELETE FROM employee WHERE Id_Code="+idCode;
-      
-      try 
-      {
-         PreparedStatement prstmt = con.prepareStatement(deleteQuery);
-         rowCount = prstmt.executeUpdate();
-         return rowCount;
-      }
-      catch(SQLException e) {
-         System.out.println(e);
-      }
-      
-      return rowCount;
-   }
+    // Driver Method for RETRIEVE RECORD FROM TABLE using above private method.
 
-  
-   /*
+    private ArrayList<String> retrieve(String selectQuery) {
+        ArrayList<String> values = new ArrayList<>();
+        try
+        {
+            this.establishConnection();
+            Statement stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery(selectQuery);
+            while(rs.next()) {
+                values.add(Integer.toString(rs.getInt(1)));
+                values.add(rs.getString(2));
+                values.add(rs.getString(3));
+                values.add(rs.getString(4));
+                values.add(rs.getString(5));
+                values.add(rs.getString(6));
+                values.add(rs.getString(7));
+            }
+        }
+        catch(SQLException sqlEx) {
+            System.out.println(sqlEx.getMessage());
+        }
+        finally {
+            this.closeConnection();
+        }
+        return values;
+    }
 
-   Method 'deleteRecords' to delete records from database. Take idCode as an arguments & returns integer value that how many records inserted.
+    // Private Method to DISPLAY ALL RECORD FROM TABLE.
 
-   */
+    public void displayRecord() {
+        String query = "SELECT * FROM employee";
+        displayValue(query);
+    }
 
-   public int updateRecords(String values[]) throws SQLException {
-      
-      int rowCount = 0;
+    // Private Method to DISPLAY SPECIFIED RECORD FROM TABLE.
 
-      DatabaseMetaData mtdt = con.getMetaData();  // To get Metadata for retrives Columns name of tables.
+    public void displayRecord(int empIdCode) {
+        String query = "SELECT * FROM employee WHERE Id_Code="+empIdCode;
+        displayValue(query);
+    }
 
-      ResultSet rst = mtdt.getColumns(null,null,"employee",null);     
-      rst.absolute(2);
+    // Driver Method to DISPLAY RECORDS FROM TABLE using above method.
 
-      StringBuffer updateQuery = new StringBuffer("UPDATE employee SET ");  // update Query.
+    private void displayValue(String selectQuery) { 
+        try
+        {
+            this.establishConnection();
+            Statement stmt = this.con.createStatement();
+            ResultSet rs = stmt.executeQuery(selectQuery);
+            if(!rs.next())
+                System.out.println("NO RECORD FOUND !");
+            else
+            {
+                do {
+                    System.out.println("Id Code........."+rs.getInt(1));
+                    System.out.println("First Name......"+rs.getString(2));
+                    System.out.println("Last Name......."+rs.getString(3));
+                    System.out.println("Mobile Number..."+rs.getString(4));
+                    System.out.println("Address........."+rs.getString(5));
+                    System.out.println("Gender.........."+rs.getString(6));
+                    System.out.println("Email Id........"+rs.getString(7));
+                    System.out.println("\n\n");
+                } while(rs.next());
+            }
+        }
+        catch(SQLException sqlEx) {
+            System.out.println(sqlEx.getMessage());
+        }
+        finally {
+            this.closeConnection();
+        }
+    }
 
-      for(int i=1; i < values.length; i++)
-      {
-         if(values[i] != null) {
-            updateQuery.append(rst.getString("COLUMN_NAME") + "='" + values[i] + "', ");
-            rst.next();
-         }
-         else
-            rst.next();
+    // Method to DELETE SPECIFIED RECORD FROM TABLE.
 
-      }
+    public int deleteRecord(int empIdCode) {
+        int effectedRow = 0;
+        try
+        {
+            this.establishConnection();
+            String deleteQuery = "DELETE FROM employee WHERE Id_Code=?";
+            PreparedStatement prstmt = con.prepareStatement(deleteQuery);
+            prstmt.setInt(1,empIdCode);
+            effectedRow = prstmt.executeUpdate();
+            if(effectedRow == 0)
+                throw new SQLException("NO RECORD FOUND WITH ID CODE - "+empIdCode);
+        }
+        catch(SQLException sqlEx) {
+            System.out.println(sqlEx.getMessage());
+        }
+        finally {
+            this.closeConnection();
+        }
+        return effectedRow;
+    }
 
-      updateQuery.deleteCharAt(updateQuery.lastIndexOf(",")); 
-      updateQuery.append(" where Id_Code="+Integer.parseInt(values[0]));
+    // Methdo to UPDATE RECORD into TABLE.
 
-      Statement stmt = con.createStatement();
-      rowCount = stmt.executeUpdate(updateQuery.toString());
+    public int updateRecord(String values[]) {
 
-      return rowCount;
-   }
-   	
-} // End of Class Body.
+        int count = valuesCount(values); // To count not null values in values[]
+        int effectedRow = 0; // To count Effected Row by UPDATE Query.
+        try
+        {
+            if(count > 1 && values[0] != null) {
+                this.establishConnection(); // Establish the Connection to DBMS.
+                DatabaseMetaData dbmt = con.getMetaData(); // Get Object of DatabaseMetaData to use MetaData of table.
 
+                ResultSet rs = dbmt.getColumns(null, null, "employee",null); // Get Columns name from Meta Data.
 
+                rs.next();
+                int number[] = new int[count]; // Array Of Int which contains index of not null value of values[].
+
+                StringBuffer updateQuery = new StringBuffer("UPDATE employee SET "); // update query to prepare.
+                String condition = "WHERE "+rs.getString("COLUMN_NAME")+"=?"; // update contition to append to update query.
+                
+                int i=1,j=1;
+                for(rs.next(); i < values.length; i++) {
+                    if(values[i] != null) {
+                        updateQuery.append(rs.getString("COLUMN_NAME")+"=?, ");
+                        rs.next();
+                        number[j] = i;
+                        j++;
+                    }
+                    else
+                        rs.next();
+                }
+                updateQuery.deleteCharAt(updateQuery.lastIndexOf(","));
+
+                updateQuery.append(condition); // Append the condition of update Query.
+                System.out.println(updateQuery);
+                
+                PreparedStatement prstmt = con.prepareStatement(updateQuery.toString()); // Get Object of Prepared Statement.
+
+                // Change below code for different table.
+
+                for(int n = 0; n < count ; n++) {
+                    switch(n) {
+                        case 0:
+                            prstmt.setInt(count,Integer.parseInt(values[number[n]]));
+                            break;
+                        case 1:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                        case 2:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                        case 3:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                        case 4:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                        case 5:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                        case 6:
+                            prstmt.setString(n,values[number[n]]);
+                            break;
+                    }
+                }
+                
+                effectedRow = prstmt.executeUpdate();
+                if(effectedRow == 0)
+                    throw new SQLException("NO RECORD FOUND WITH ID CODE - "+values[0]);  
+            }
+            else
+                throw new SQLException("PROVIDE ENOUGH DATA !");
+        }
+        catch(SQLException sqlEx) {
+            System.out.println(sqlEx.getMessage());
+        }
+        catch(ArrayIndexOutOfBoundsException arrayIndexEx) {
+            System.out.println(arrayIndexEx.getMessage());
+        }
+        finally {
+            this.closeConnection();
+        }
+        return effectedRow;
+    }
+
+    private int valuesCount(String values[]) {
+        int count = 0;
+        for(int i = 0 ; i < values.length; i++) {
+            if(values[i] != null)
+                count++;
+        }
+        return count;
+    }
+}
